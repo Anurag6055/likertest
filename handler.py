@@ -37,6 +37,7 @@ from config import (
 )
 from db_models import LikerAccount, SessionLocal, UploadedPost, create_tables
 from erome_liker import EromeLiker
+from sqlalchemy import text
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -170,6 +171,21 @@ def _get_valid_liker(db_session, account: LikerAccount) -> EromeLiker | None:
 def _like_post(db_session, post: UploadedPost, accounts: list[LikerAccount]):
     """Like ``post`` using every active liker account."""
     logger.info(f"[Handler] Liking album {post.album_guid} ({post.album_title})...")
+    
+    # Try to fetch model name using a raw SQL approach similar to routes.py
+    model_name_str = ""
+    if getattr(post, 'model_id', None):
+        try:
+            result = db_session.execute(
+                text("SELECT name FROM model_entry WHERE id = :id LIMIT 1"),
+                {"id": post.model_id}
+            )
+            row = result.fetchone()
+            if row:
+                model_name_str = f" for `{row[0]}`"
+        except Exception as e:
+            logger.warning(f"[Handler] Could not fetch model name for model_id {post.model_id}: {e}")
+
     like_count = 0
 
     for account in accounts:
@@ -185,7 +201,7 @@ def _like_post(db_session, post: UploadedPost, accounts: list[LikerAccount]):
             _save_cookies(db_session, account, liker.dump_cookies())
             
             _notify(
-                f"❤️ **Liked:** `{post.album_title or post.album_guid}` with account `{account.email}`",
+                f"❤️ **Liked:** `Model: {model_name_str} | Album title: {post.album_title} | Album guid: {post.album_guid}` with account `{account.email}`",
                 color=65280
             )
 
@@ -202,7 +218,7 @@ def _like_post(db_session, post: UploadedPost, accounts: list[LikerAccount]):
 
     logger.info(f"[Handler] Album {post.album_guid} liked by {like_count}/{len(accounts)} accounts.")
     _notify(
-        f"❤️ **Liked:** `{post.album_title or post.album_guid}` — "
+        f"❤️ **Liked:** `Model: {model_name_str} | Album title: {post.album_title} | Album guid: {post.album_guid}` — "
         f"{like_count}/{len(accounts)} accounts succeeded.",
         color=65280 if like_count == len(accounts) else 16776960,
     )
