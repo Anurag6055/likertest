@@ -1,0 +1,148 @@
+name: Deploy Erome Liker Bot to Lambda (Docker)
+
+on:
+  push:
+    branches:
+      - production   # auto-deploy prod
+  workflow_dispatch:   # allow manual deploy for dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Set Lambda target
+      id: set_target
+      run: |
+        # Get the branch name - either from push event or current branch for manual dispatch
+        if [ "${{ github.event_name }}" = "push" ]; then
+          BRANCH_NAME="${{ github.ref_name }}"
+        else
+          BRANCH_NAME="${{ github.ref_name }}"
+        fi
+        
+        echo "Branch: $BRANCH_NAME"
+        
+        if [ "$BRANCH_NAME" = "production" ]; then
+          echo "function_name=erome-liker-bot" >> $GITHUB_OUTPUT
+          echo "db_url=${{ vars.PROD_DATABASE_URL }}" >> $GITHUB_OUTPUT
+          echo "image_tag=production" >> $GITHUB_OUTPUT
+          echo "environment=production" >> $GITHUB_OUTPUT
+        elif [ "$BRANCH_NAME" = "development" ]; then
+          echo "function_name=erome-liker-bot-dev" >> $GITHUB_OUTPUT
+          echo "db_url=${{ vars.DEV_DATABASE_URL }}" >> $GITHUB_OUTPUT
+          echo "image_tag=development" >> $GITHUB_OUTPUT
+          echo "environment=development" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Unknown branch: $BRANCH_NAME"
+          echo "Only 'production' and 'development' branches are supported for deployment"
+          exit 1
+        fi
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ vars.AWS_ACCESS_KEY_ID }} # Or secrets.AWS_ACCESS_KEY_ID
+        aws-secret-access-key: ${{ vars.AWS_SECRET_ACCESS_KEY }} # Or secrets.AWS_SECRET_ACCESS_KEY
+        aws-region: ${{ vars.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push image to Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        # Set this to a different repo name, e.g., erome-liker-bot
+        ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY_NAME }}
+        IMAGE_TAG: ${{ steps.set_target.outputs.image_tag }}
+      run: |
+        docker build \
+          --platform linux/amd64 \
+          --provenance=false \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+
+    - name: Check if Lambda function exists
+      id: check_function
+      run: |
+        if aws lambda get-function --function-name ${{ steps.set_target.outputs.function_name }} >/dev/null 2>&1; then
+          echo "function_exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Function ${{ steps.set_target.outputs.function_name }} exists"
+        else
+          echo "function_exists=false" >> $GITHUB_OUTPUT
+          echo "⚠️ Function ${{ steps.set_target.outputs.function_name }} does not exist, will create it"
+        fi
+
+    - name: Create Lambda function (if it doesn't exist)
+      if: steps.check_function.outputs.function_exists == 'false'
+      run: |
+        aws lambda create-function \
+          --function-name ${{ steps.set_target.outputs.function_name }} \
+          --package-type Image \
+          --code ImageUri=${{ env.image_uri }} \
+          --role ${{ vars.LAMBDA_EXECUTION_ROLE_ARN }} \
+          --timeout 300 \
+          --memory-size 1024 \
+          --environment "Variables={DATABASE_URL=${{ steps.set_target.outputs.db_url }}}"
+
+    - name: Update Lambda function code (if function exists)
+      if: steps.check_function.outputs.function_exists == 'true'
+      run: |
+        aws lambda update-function-code \
+          --function-name ${{ steps.set_target.outputs.function_name }} \
+          --image-uri ${{ env.image_uri }}
+
+    - name: Wait for code update to complete
+      if: steps.check_function.outputs.function_exists == 'true'
+      run: |
+        aws lambda wait function-updated \
+          --function-name ${{ steps.set_target.outputs.function_name }}
+
+    - name: Update Lambda configuration (if function exists)
+      if: steps.check_function.outputs.function_exists == 'true'
+      run: |
+        aws lambda update-function-configuration \
+          --function-name ${{ steps.set_target.outputs.function_name }} \
+          --timeout 300 \
+          --memory-size 1024 \
+          --environment "Variables={DATABASE_URL=${{ steps.set_target.outputs.db_url }}}"
+
+    - name: Wait for configuration update to complete
+      if: steps.check_function.outputs.function_exists == 'true'
+      run: |
+        aws lambda wait function-updated \
+          --function-name ${{ steps.set_target.outputs.function_name }}
+
+    - name: Create/Update EventBridge schedule
+      run: |
+        # Create or update EventBridge rule for 5-minute execution
+        aws events put-rule \
+          --name "${{ steps.set_target.outputs.function_name }}-5min" \
+          --schedule-expression "rate(5 minutes)" \
+          --description "Run ${{ steps.set_target.outputs.function_name }} every 5 minutes"
+        
+        # Add permission for EventBridge to invoke the Lambda
+        aws lambda add-permission \
+          --function-name ${{ steps.set_target.outputs.function_name }} \
+          --statement-id "allow-eventbridge-${{ steps.set_target.outputs.function_name }}" \
+          --action "lambda:InvokeFunction" \
+          --principal "events.amazonaws.com" \
+          --source-arn "arn:aws:events:${{ vars.AWS_REGION }}:${{ vars.AWS_ACCOUNT_ID }}:rule/${{ steps.set_target.outputs.function_name }}-5min" \
+          2>/dev/null || echo "Permission already exists"
+        
+        # Add the Lambda function as target to the EventBridge rule
+        aws events put-targets \
+          --rule "${{ steps.set_target.outputs.function_name }}-5min" \
+          --targets "Id"="1","Arn"="arn:aws:lambda:${{ vars.AWS_REGION }}:${{ vars.AWS_ACCOUNT_ID }}:function:${{ steps.set_target.outputs.function_name }}"
+
+    - name: Deployment summary
+      run: |
+        echo "✅ Successfully deployed to ${{ steps.set_target.outputs.function_name }}"
+        echo "🐳 Docker image: ${{ env.image_uri }}"
+        echo "🌿 Branch: ${{ github.ref_name }} ({{ steps.set_target.outputs.environment }})"
+        echo "⏰ Scheduled to run every 5 minutes"

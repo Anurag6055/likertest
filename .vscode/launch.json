@@ -1,0 +1,57 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Erome Liker: handler.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/handler.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "DATABASE_URL": "sqlite:///D:/projects/freelance/render_test/profiles.db",
+                "ONNX_MODEL_PATH": "${workspaceFolder}/weights/model_0.7200.onnx",
+                "LABELS_FILE": "${workspaceFolder}/labels.json",
+                "CAPTCHA_PATH": "C:/tmp/liker_captcha.png",
+                "LIKE_DELAY_SECONDS": "0",
+                "LIKE_SLEEP_MIN": "1",
+                "LIKE_SLEEP_MAX": "2",
+                "DISCORD_WEBHOOK": ""
+            }
+        },
+        {
+            "name": "Erome Liker: init_cookies.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/init_cookies.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "DATABASE_URL": "sqlite:///D:/projects/freelance/render_test/profiles.db",
+                "ONNX_MODEL_PATH": "${workspaceFolder}/weights/model_0.7200.onnx",
+                "LABELS_FILE": "${workspaceFolder}/labels.json",
+                "CAPTCHA_PATH": "C:/tmp/liker_captcha.png"
+            }
+        },
+        {
+            "name": "Erome Liker: seed_accounts.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_accounts.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONUNBUFFERED": "1",
+                "DATABASE_URL": "sqlite:///D:/projects/freelance/render_test/profiles.db"
+            }
+        }
+    ]
+}
