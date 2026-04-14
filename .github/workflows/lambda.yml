@@ -26,12 +26,12 @@ jobs:
         
         echo "Branch: $BRANCH_NAME"
         
-        if [ "$BRANCH_NAME" = "production" ]; then
+        if [ "$BRANCH_NAME" = "main" ]; then
           echo "function_name=erome-liker-bot" >> $GITHUB_OUTPUT
           echo "db_url=${{ vars.PROD_DATABASE_URL }}" >> $GITHUB_OUTPUT
           echo "image_tag=production" >> $GITHUB_OUTPUT
           echo "environment=production" >> $GITHUB_OUTPUT
-        elif [ "$BRANCH_NAME" = "development" ]; then
+        elif [ "$BRANCH_NAME" = "develop" ]; then
           echo "function_name=erome-liker-bot-dev" >> $GITHUB_OUTPUT
           echo "db_url=${{ vars.DEV_DATABASE_URL }}" >> $GITHUB_OUTPUT
           echo "image_tag=development" >> $GITHUB_OUTPUT

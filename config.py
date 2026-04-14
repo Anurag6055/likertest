@@ -5,7 +5,8 @@ from pathlib import Path
 _HERE = Path(__file__).parent
 
 # --- Database ---
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///D:/projects/freelance/render_test/profiles.db")
+# DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_URL = "postgresql://database_test_7bbz_user:t4s49VnZPe18YM2STG4yO1tbYImbHK5K@dpg-d7ak6jruibrs739slbm0-a.oregon-postgres.render.com/database_test_7bbz"
 
 # --- ONNX Captcha Model ---
 # Place model_*.onnx inside erome_liker/weights/ when running standalone
@@ -32,4 +33,4 @@ LIKE_SLEEP_MAX = float(os.environ.get("LIKE_SLEEP_MAX", 8))
 COOKIE_MAX_AGE_SECONDS = int(os.environ.get("COOKIE_MAX_AGE_SECONDS", 86400))  # 24 hours
 
 # --- Notifications ---
-DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1493670069694238760/aqDmmi709RdVKQdJoZsfz3wKv1qWFAnHvX47Bk6nulleCfCFsv6EmJL2AM_FmaUHEcNp"
