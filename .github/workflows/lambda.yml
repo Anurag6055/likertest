@@ -3,7 +3,7 @@ name: Deploy Erome Liker Bot to Lambda (Docker)
 on:
   push:
     branches:
-      - production   # auto-deploy prod
+      - main   # auto-deploy prod
   workflow_dispatch:   # allow manual deploy for dev
 
 jobs:
