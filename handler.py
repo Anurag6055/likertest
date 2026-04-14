@@ -183,6 +183,11 @@ def _like_post(db_session, post: UploadedPost, accounts: list[LikerAccount]):
             like_count += 1
             # Persist refreshed cookies (session may have been renewed with new tokens)
             _save_cookies(db_session, account, liker.dump_cookies())
+            
+            _notify(
+                f"❤️ **Liked:** `{post.album_title or post.album_guid}` with account `{account.email}`",
+                color=65280
+            )
 
         # Randomised delay between accounts to avoid burst detection
         sleep_s = random.uniform(LIKE_SLEEP_MIN, LIKE_SLEEP_MAX)

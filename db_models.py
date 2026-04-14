@@ -59,6 +59,9 @@ class UploadedPost(Base):
     liked_at = Column(DateTime(timezone=True), nullable=True)
     # Number of liker accounts that successfully liked (for diagnostics)
     like_count = Column(Integer, default=0, nullable=False)
+    
+    # Optional link back to the ModelEntry (managed by the uploader bot)
+    model_id = Column(Integer, nullable=True)
 
     def __repr__(self):
         return f"<UploadedPost guid={self.album_guid} liked={self.liked}>"
